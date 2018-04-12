@@ -141,6 +141,8 @@ RUN wget -q --no-cookies --no-check-certificate \
 
 RUN for a in ${ADDONS}; do echo "Installing addon $a"; /opt/exo/addon install $a; done
 
+RUN mkdir -p ${EXO_CONF_DIR}          && chown ${EXO_USER}:${EXO_GROUP} ${EXO_CONF_DIR}
+
 USER ${EXO_USER}
 
 CMD [ "/opt/exo/start_eXo.sh" ]
