@@ -141,9 +141,9 @@ RUN wget -q --no-cookies --no-check-certificate \
 
 RUN for a in ${ADDONS}; do echo "Installing addon $a"; /opt/exo/addon install $a; done
 
-RUN mkdir -p ${EXO_CONF_DIR}          && chown ${EXO_USER}:${EXO_GROUP} ${EXO_CONF_DIR}
+RUN mkdir -p ${EXO_CONF_DIR}          && chown ${EXO_USER}:${EXO_GROUP} ${EXO_CONF_DIR} /tmp /srv
 RUN chmod -R g+rwX ${EXO_APP_DIR} ${EXO_CONF_DIR} ${EXO_DATA_DIR} ${EXO_SHARED_DATA_DIR} ${EXO_LOG_DIR} /tmp
 
 USER ${EXO_USER}
 
-CMD [ "/opt/exo/start_eXo.sh" ]
+CMD [ "/opt/exo/start_eXo.sh", "--data", "/srv/exo" ]
