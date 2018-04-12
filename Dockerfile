@@ -57,7 +57,7 @@ ENV EXO_LOG_DIR            /var/log/exo
 ENV EXO_TMP_DIR            /tmp/exo-tmp
 
 ENV EXO_USER exo
-ENV EXO_GROUP ${EXO_USER}
+ENV EXO_GROUP 0
 
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
 # (we use 999 as uid like in official Docker images)
@@ -139,8 +139,8 @@ RUN wget -q --no-cookies --no-check-certificate \
   && mv -v /tmp/*.pf "${JAVA_HOME}/jre/lib/cmm/" \
   && rm -rf /tmp/*
 
-USER ${EXO_USER}
-
 RUN for a in ${ADDONS}; do echo "Installing addon $a"; /opt/exo/addon install $a; done
+
+USER ${EXO_USER}
 
 CMD [ "/opt/exo/start_eXo.sh" ]
