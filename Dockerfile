@@ -136,6 +136,7 @@ RUN chmod -R a+rwx ${EXO_APP_DIR} && \
     chmod -R g=u /etc/passwd
 
 ENV PATH=$PATH:${EXO_APP_DIR}/bin
+COPY conf/exo.properties /opt/exo/etc/exo.properties 
 
 USER 1001
 
