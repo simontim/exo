@@ -11,7 +11,7 @@
 # -----------------------------------------------------------------------------
 
 replace_in_file() {
-  local _tmpFile=$(mktemp /tmp/replace.XXXXXXXXXX) || { echo "Failed to create temp file"; exit 1; }
+  local _tmpFile=$(mktemp ${EXO_TMP_DIR}/replace.XXXXXXXXXX) || { echo "Failed to create temp file"; exit 1; }
   mv $1 ${_tmpFile}
   sed "s|$2|$3|g" ${_tmpFile} > $1
   rm ${_tmpFile}
@@ -19,7 +19,7 @@ replace_in_file() {
 
 # $1 : the full line content to insert at the end of eXo configuration file
 add_in_exo_configuration() {
-  local EXO_CONFIG_FILE="/etc/exo/exo.properties"
+  local EXO_CONFIG_FILE="/opt/exo/etc/exo.properties"
   local P1="$1"
   if [ ! -f ${EXO_CONFIG_FILE} ]; then
     echo "Creating eXo configuration file [${EXO_CONFIG_FILE}]"
@@ -36,7 +36,7 @@ add_in_exo_configuration() {
 
 # $1 : the full line content to insert at the end of Chat configuration file
 add_in_chat_configuration() {
-  local _CONFIG_FILE="/etc/exo/chat.properties"
+  local _CONFIG_FILE="/opt/exo/etc/chat.properties"
   local P1="$1"
   if [ ! -f ${_CONFIG_FILE} ]; then
     echo "Creating Chat configuration file [${_CONFIG_FILE}]"
@@ -145,7 +145,7 @@ esac
 [ -z "${EXO_CHAT_SERVER_PASSPHRASE}" ] && EXO_CHAT_SERVER_PASSPHRASE="something2change"
 
 [ -z "${EXO_ES_EMBEDDED}" ] && EXO_ES_EMBEDDED="true"
-[ -z "${EXO_ES_EMBEDDED_DATA}" ] && EXO_ES_EMBEDDED_DATA="/srv/exo/es"
+[ -z "${EXO_ES_EMBEDDED_DATA}" ] && EXO_ES_EMBEDDED_DATA="${EXO_DATA_DIR}/es"
 [ -z "${EXO_ES_SCHEME}" ] && EXO_ES_SCHEME="http"
 [ -z "${EXO_ES_HOST}" ] && EXO_ES_HOST="localhost"
 [ -z "${EXO_ES_PORT}" ] && EXO_ES_PORT="9200"
@@ -164,7 +164,8 @@ EXO_ES_URL="${EXO_ES_SCHEME}://${EXO_ES_HOST}:${EXO_ES_PORT}"
 
 [ -z "${EXO_CLUSTER}" ] && EXO_CLUSTER="false"
 [ -z "${EXO_CLUSTER_NODE_NAME}" ] && EXO_CLUSTER_NODE_NAME="${HOSTNAME}"
-[ -z "${EXO_CLUSTER_HOSTS}" ] && EXO_CLUSTER_HOSTS="-"
+#[ -z "${EXO_CLUSTER_HOSTS}" ] && EXO_CLUSTER_HOSTS="-"
+[ -z "${EXO_CLUSTER_HOSTS}" ] && EXO_CLUSTER_HOSTS="${HOSTNAME}"
 [ -z "${EXO_JGROUPS_ADDR}" ] && EXO_JGROUPS_ADDR="GLOBAL"
 
 [ -z $EXO_PROFILES ] && EXO_PROFILES="all"
@@ -198,6 +199,7 @@ else
       cat /opt/exo/conf/server-hsqldb.xml > /opt/exo/conf/server.xml
       ;;
     mysql)
+      replace_in_file /opt/exo/conf/server-mysql.xml "jdbc:mysql://localhost:3306/plf?autoReconnect=true" "jdbc:mysql://localhost:3306/plf?autoReconnect=true\&amp;useSSL=false"
       cat /opt/exo/conf/server-mysql.xml > /opt/exo/conf/server.xml
       replace_in_file /opt/exo/conf/server.xml "jdbc:mysql://localhost:3306/plf" "jdbc:mysql://${EXO_DB_HOST}:${EXO_DB_PORT}/${EXO_DB_NAME}"
       replace_in_file /opt/exo/conf/server.xml 'username="plf" password="plf"' 'username="'${EXO_DB_USER}'" password="'${EXO_DB_PASSWORD}'"'
@@ -318,7 +320,7 @@ else
   }
 
   # Tomcat valves and listeners configuration
-  if [ -e /etc/exo/host.yml ]; then
+  if [ -e /opt/exo/etc/host.yml ]; then
     echo "Override default valves and listeners configuration"
 
     # Remove the default configuration
@@ -332,9 +334,9 @@ else
     i=0
     while [ $i -ge 0 ]; do
       # Declare component
-      type=$(yaml read /etc/exo/host.yml components[$i].type)
+      type=$(yaml read /opt/exo/etc/host.yml components[$i].type)
       if [ "${type}" != "null" ]; then
-        className=$(yaml read /etc/exo/host.yml components[$i].className)
+        className=$(yaml read /opt/exo/etc/host.yml components[$i].className)
         echo "Declare ${type} ${className}"
         xmlstarlet ed -L -s "/Server/Service/Engine/Host" -t elem -n "${type}TMP" -v "" \
             -i "//${type}TMP" -t attr -n "className" -v "${className}" \
@@ -346,9 +348,9 @@ else
         # Add component attributes
         j=0
         while [ $j -ge 0 ]; do
-          attributeName=$(yaml read /etc/exo/host.yml components[$i].attributes[$j].name)
+          attributeName=$(yaml read /opt/exo/etc/host.yml components[$i].attributes[$j].name)
           if [ "${attributeName}" != "null" ]; then
-            attributeValue=$(yaml read /etc/exo/host.yml components[$i].attributes[$j].value | tr -d "'")
+            attributeValue=$(yaml read /opt/exo/etc/host.yml components[$i].attributes[$j].value | tr -d "'")
             xmlstarlet ed -L -i "//${type}TMP" -t attr -n "${attributeName}" -v "${attributeValue}" \
                 /opt/exo/conf/server.xml || {
               echo "ERROR during xmlstarlet processing (adding ${className} / ${attributeName})"
@@ -645,14 +647,14 @@ fi
 # -----------------------------------------------------------------------------
 # Change chat add-on security token at each start
 # -----------------------------------------------------------------------------
-if [ -f /etc/exo/chat.properties ] && [ "${EXO_CHAT_SERVER_STANDALONE}" = "false" ]; then
-  sed -i 's/^chatPassPhrase=.*$/chatPassPhrase='"$(tr -dc '[:alnum:]' < /dev/urandom  | dd bs=4 count=6 2>/dev/null)"'/' /etc/exo/chat.properties
+if [ -f /opt/exo/etc/chat.properties ] && [ "${EXO_CHAT_SERVER_STANDALONE}" = "false" ]; then
+  sed -i 's/^chatPassPhrase=.*$/chatPassPhrase='"$(tr -dc '[:alnum:]' < /dev/urandom  | dd bs=4 count=6 2>/dev/null)"'/' /opt/exo/etc/chat.properties
 fi
 
 # -----------------------------------------------------------------------------
 # Define a better place for eXo Platform license file
 # -----------------------------------------------------------------------------
-CATALINA_OPTS="${CATALINA_OPTS:-} -Dexo.license.path=/etc/exo/license.xml"
+CATALINA_OPTS="${CATALINA_OPTS:-} -Dexo.license.path=/opt/exo/etc/license.xml"
 
 # -----------------------------------------------------------------------------
 # LDAP configuration
@@ -697,28 +699,28 @@ CATALINA_OPTS="${CATALINA_OPTS:-} -Djava.security.egd=file:/dev/./urandom"
 case "${EXO_DB_TYPE}" in
   mysql)
     echo "Waiting for database ${EXO_DB_TYPE} availability at ${EXO_DB_HOST}:${EXO_DB_PORT} ..."
-    /opt/wait-for-it.sh ${EXO_DB_HOST}:${EXO_DB_PORT} -s -t 60
+    /opt/exo/bin/wait-for-it.sh ${EXO_DB_HOST}:${EXO_DB_PORT} -s -t 60
     ;;
   pgsql|postgres|postgresql)
     echo "Waiting for database ${EXO_DB_TYPE} availability at ${EXO_DB_HOST}:${EXO_DB_PORT} ..."
-    /opt/wait-for-it.sh ${EXO_DB_HOST}:${EXO_DB_PORT} -s -t 60
+    /opt/exo/bin/wait-for-it.sh ${EXO_DB_HOST}:${EXO_DB_PORT} -s -t 60
     ;;
   oracle|ora)
     echo "Waiting for database ${EXO_DB_TYPE} availability at ${EXO_DB_HOST}:${EXO_DB_PORT} ..."
-    /opt/wait-for-it.sh ${EXO_DB_HOST}:${EXO_DB_PORT} -s -t 60
+    /opt/exo/bin/wait-for-it.sh ${EXO_DB_HOST}:${EXO_DB_PORT} -s -t 60
     ;;
 esac
 
 # Wait for mongodb availability (if chat is installed)
 if [ -f /opt/exo/addons/statuses/exo-chat.status ]; then
   echo "Waiting for mongodb availability at ${EXO_MONGO_HOST}:${EXO_MONGO_PORT} ..."
-  /opt/wait-for-it.sh ${EXO_MONGO_HOST}:${EXO_MONGO_PORT} -s -t 60
+  /opt/exo/bin/wait-for-it.sh ${EXO_MONGO_HOST}:${EXO_MONGO_PORT} -s -t 60
 fi
 
 # Wait for elasticsearch availability (if external)
 if [ "${EXO_ES_EMBEDDED}" != "true" ]; then
   echo "Waiting for external elastic search availability at ${EXO_ES_HOST}:${EXO_ES_PORT} ..."
-  /opt/wait-for-it.sh ${EXO_ES_HOST}:${EXO_ES_PORT} -s -t 60
+  /opt/exo/bin/wait-for-it.sh ${EXO_ES_HOST}:${EXO_ES_PORT} -s -t 60
 fi
 
 set +u		# DEACTIVATE unbound variable check
